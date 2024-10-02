@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Osobisty Asystent Iva</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css"> <!-- Link do pliku CSS -->
+</head>
+<body>
+    <div class="container">
+        <h1>Inteligentna asystentka Iva</h1>
+        <button id="startRecognition">Rozpocznij rozpoznawanie mowy</button>
+        <div id="waveAnimation">
+            <div class="wave"></div>
+        </div>
+        <footer>Powered by GPT</footer>
+    </div>
+
+    <script>
+        const startRecognitionButton = document.getElementById('startRecognition');
+        const waveAnimation = document.getElementById('waveAnimation');
+        const waveElement = waveAnimation.querySelector('.wave');
+
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = 'pl-PL';
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+            startRecognitionButton.classList.add('listening');
+            startRecognitionButton.innerText = 'Słucham...';
+            waveAnimation.style.display = 'block';
+            waveElement.classList.remove('circle');
+        };
+
+        recognition.onresult = async (event) => {
+            const userInput = event.results[0][0].transcript;
+            console.log(`Rozpoznano: ${userInput}`);
+
+            waveAnimation.style.display = 'block';
+            waveElement.classList.add('circle');
+
+            try {
+                const response = await fetch('http://localhost:5000/ask', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ input: userInput })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Błąd w odpowiedzi z serwera');
+                }
+
+                const data = await response.json();
+                console.log(data);
+
+            } catch (error) {
+                console.error(error);
+            } finally {
+                waveAnimation.style.display = 'none';
+            }
+        };
+
+        recognition.onerror = (event) => {
+            console.error(`Błąd: ${event.error}`);
+            waveAnimation.style.display = 'none';
+        };
+
+        recognition.onend = () => {
+            startRecognitionButton.classList.remove('listening');
+            startRecognitionButton.innerText = 'Rozpocznij rozpoznawanie mowy';
+            waveAnimation.style.display = 'none';
+        };
+
+        startRecognitionButton.onclick = () => {
+            recognition.start();
+        };
+    </script>
+</body>
+</html>
