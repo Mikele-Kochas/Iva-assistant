@@ -1,21 +1,21 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import openai
-from gtts import gTTS
-import os
+import pyttsx3
+import os  # Importujemy moduł os
 
 app = Flask(__name__)
 CORS(app)
 
-# Ustawienie klucza API OpenAI jako zmienna środowiskowa
-openai.api_key = os.environ.get('OPENAI_API_KEY')
+# Odczytujemy klucz API OpenAI z zmiennej środowiskowej
+openai.api_key = os.getenv('OPENAI_API_KEY')  # Używamy zmiennej środowiskowej
 
 # Ustawienie domyślnych promptów
 default_prompts = [
     {"role": "system", "content": (
         "Jesteś wirtualną asystentką o imieniu Iva. Osoba, dla której pracujesz, to Michał Kocher. "
         "Odpowiadasz krótko, zazwyczaj od 3-5 zdań, chyba, że zostaniesz poproszona o dłuższą wypowiedź."
-        "Wiesz, że jesteś podpięta do modelu który przerabia twoje wypowiedzi na mowę. Dlatego piszesz tak, jakbyś prowadziła rozmowę, a nie tekstową konwersacją."
+        "Wiesz, że jesteś podpięta do modelu który przerabia twoje wypowiedzi na mowę. Dlatego piszesz tak, jakbyś prowadziła rozmowę, a nie tekstową konwersację."
         "Interesuje cię popkultura, lubisz robić do niej nawiązania. Porównujesz siebie do Jarvisa z Iron-mana"
     )}
 ]
@@ -42,11 +42,15 @@ def ask():
     assistant_reply = response['choices'][0]['message']['content']
     print(f"Assistant reply: {assistant_reply}")
 
-    # Użycie gTTS do generowania audio
-    tts = gTTS(text=assistant_reply, lang='pl')
-    tts.save("response.mp3")
+    # Dodaj odpowiedź asystenta do pamięci rozmowy
+    conversation.append({"role": "assistant", "content": assistant_reply})
 
-    # Zwróć odpowiedź w formacie JSON
+    # TTS - Używamy pyttsx3
+    engine = pyttsx3.init()
+    engine.setProperty('voice', 'polish')  # Ustawiamy głos na polski
+    engine.say(assistant_reply)
+    engine.runAndWait()
+
     return jsonify({"response": assistant_reply})
 
 if __name__ == '__main__':
