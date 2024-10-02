@@ -1,57 +1,41 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import openai
-import pyttsx3
-import os  # Importujemy moduł os
+import os
 
 app = Flask(__name__)
 CORS(app)
 
 # Odczytujemy klucz API OpenAI z zmiennej środowiskowej
-openai.api_key = os.getenv('OPENAI_API_KEY')  # Używamy zmiennej środowiskowej
-
-# Ustawienie domyślnych promptów
-default_prompts = [
-    {"role": "system", "content": (
-        "Jesteś wirtualną asystentką o imieniu Iva. Osoba, dla której pracujesz, to Michał Kocher. "
-        "Odpowiadasz krótko, zazwyczaj od 3-5 zdań, chyba, że zostaniesz poproszona o dłuższą wypowiedź."
-        "Wiesz, że jesteś podpięta do modelu który przerabia twoje wypowiedzi na mowę. Dlatego piszesz tak, jakbyś prowadziła rozmowę, a nie tekstową konwersację."
-        "Interesuje cię popkultura, lubisz robić do niej nawiązania. Porównujesz siebie do Jarvisa z Iron-mana"
-    )}
-]
-
-conversation = []  # Pamięć rozmowy
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
 @app.route('/ask', methods=['POST'])
 def ask():
-    user_input = request.json['input']
+    user_input = request.json.get('input')  # Używamy .get() dla bezpieczeństwa
     print(f"Received input: {user_input}")
 
-    # Dodaj domyślne prompty do pamięci rozmowy, jeśli to pierwsze zapytanie
-    if not conversation:
-        conversation.extend(default_prompts)
+    try:
+        # Przygotowanie do wywołania OpenAI API
+        response = openai.ChatCompletion.create(
+            model="gpt-4o-mini",  # Użyj właściwego modelu
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},  # Prompt systemowy
+                {"role": "user", "content": user_input}  # Prompt użytkownika
+            ]
+        )
 
-    # Dodaj wiadomość użytkownika do pamięci rozmowy
-    conversation.append({"role": "user", "content": user_input})
+        # Wyciąganie odpowiedzi
+        assistant_reply = response['choices'][0]['message']['content']
+        print(f"Assistant reply: {assistant_reply}")
 
-    # Odpowiedź OpenAI z kontekstem
-    response = openai.ChatCompletion.create(
-        model="gpt-4o-mini",
-        messages=conversation
-    )
-    assistant_reply = response['choices'][0]['message']['content']
-    print(f"Assistant reply: {assistant_reply}")
+        return jsonify({"response": assistant_reply})
 
-    # Dodaj odpowiedź asystenta do pamięci rozmowy
-    conversation.append({"role": "assistant", "content": assistant_reply})
-
-    # TTS - Używamy pyttsx3
-    engine = pyttsx3.init()
-    engine.setProperty('voice', 'polish')  # Ustawiamy głos na polski
-    engine.say(assistant_reply)
-    engine.runAndWait()
-
-    return jsonify({"response": assistant_reply})
+    except openai.error.OpenAIError as e:
+        print(f"OpenAI API error: {e}")
+        return jsonify({"error": "Wystąpił błąd w połączeniu z API OpenAI."}), 500
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return jsonify({"error": "Wystąpił nieoczekiwany błąd."}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
